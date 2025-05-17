@@ -10,6 +10,7 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private Button clientButton;
     [SerializeField] private Button startGameButton;
     [SerializeField] private TMP_InputField joinCodeInput;
+    [SerializeField] private GameObject menuPanel;
     [SerializeField] private GameObject lobbyPanel;
 
     [SerializeField] private RelayManager relayManager;
@@ -20,6 +21,7 @@ public class LobbyManager : MonoBehaviour
         clientButton.onClick.AddListener(JoinLobby);
         startGameButton.onClick.AddListener(StartGame);
 
+        menuPanel.SetActive(true);
         lobbyPanel.SetActive(false);
         startGameButton.gameObject.SetActive(false);
     }
@@ -33,7 +35,7 @@ public class LobbyManager : MonoBehaviour
         if (!string.IsNullOrEmpty(joinCode))
         {
             NetworkManager.Singleton.StartHost();
-
+            menuPanel.SetActive(false);
             lobbyPanel.SetActive(true);
 
             startGameButton.gameObject.SetActive(true);
@@ -61,6 +63,7 @@ public class LobbyManager : MonoBehaviour
         if (success)
         {
             NetworkManager.Singleton.StartClient();
+            menuPanel.SetActive(false);
             lobbyPanel.SetActive(true);
         }
         else
