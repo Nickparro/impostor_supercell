@@ -5,29 +5,37 @@ using UnityEngine;
 public class PlayerSpawningSystem : NetworkBehaviour
 {
     [Header("Player Prefabs")]
-    [SerializeField] private GameObject[] playerPrefabs; 
+    [SerializeField] private GameObject[] playerPrefabs;
 
     [Header("Spawn Settings")]
     [SerializeField] private Transform[] spawnPoints;
 
-    private HashSet<int> assignedModels = new HashSet<int>();
     private NetworkList<int> usedModelIndices;
+    private NetworkList<int> usedSpawnIndices;
 
     private void Awake()
     {
         usedModelIndices = new NetworkList<int>();
+        usedSpawnIndices = new NetworkList<int>();
     }
 
     public override void OnNetworkSpawn()
     {
-        base.OnNetworkSpawn();
+        Debug.Log("OnNetworkSpawn PlayerSpawningSystem");
 
         if (IsServer)
         {
+            // Por seguridad, conectar al evento
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-            SpawnPlayerForClient(NetworkManager.Singleton.LocalClientId);
+
+            // Spawnear a todos los clientes que ya están conectados (incluido el host)
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsIds)
+            {
+                SpawnPlayerForClient(client);
+            }
         }
     }
+
 
     public override void OnNetworkDespawn()
     {
@@ -35,8 +43,6 @@ public class PlayerSpawningSystem : NetworkBehaviour
         {
             NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
         }
-
-        base.OnNetworkDespawn();
     }
 
     private void OnClientConnected(ulong clientId)
@@ -50,54 +56,64 @@ public class PlayerSpawningSystem : NetworkBehaviour
     private void SpawnPlayerForClient(ulong clientId)
     {
         int modelIndex = GetRandomUnusedModelIndex();
+        int spawnIndex = GetRandomUnusedSpawnIndex();
+
+        if (modelIndex == -1 || spawnIndex == -1)
+        {
+            Debug.LogWarning("No hay modelos o puntos de spawn disponibles.");
+            return;
+        }
+
         usedModelIndices.Add(modelIndex);
-        Transform spawnPoint = GetRandomSpawnPoint();
+        usedSpawnIndices.Add(spawnIndex);
+
+        Transform spawnPoint = spawnPoints[spawnIndex];
         GameObject playerInstance = Instantiate(playerPrefabs[modelIndex], spawnPoint.position, spawnPoint.rotation);
-        NetworkObject networkObject = playerInstance.GetComponent<NetworkObject>();
-        networkObject.SpawnAsPlayerObject(clientId);
-        InformClientAboutModelClientRpc(clientId, modelIndex);
+        playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
+
+        // Enviar solo al cliente correspondiente
+        var rpcParams = new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams
+            {
+                TargetClientIds = new List<ulong> { clientId }
+            }
+        };
+
+        InformClientAboutModelClientRpc(modelIndex, rpcParams);
     }
 
     private int GetRandomUnusedModelIndex()
     {
-        if (usedModelIndices.Count >= playerPrefabs.Length)
-        {
-            Debug.LogWarning("Todos los modelos han sido usados, reiniciando la selección.");
-            usedModelIndices.Clear();
-        }
+        if (usedModelIndices.Count >= playerPrefabs.Length) return -1;
 
         List<int> availableIndices = new List<int>();
-
         for (int i = 0; i < playerPrefabs.Length; i++)
         {
             if (!usedModelIndices.Contains(i))
-            {
                 availableIndices.Add(i);
-            }
         }
 
-        int randomIndex = Random.Range(0, availableIndices.Count);
-        return availableIndices[randomIndex];
+        return availableIndices[Random.Range(0, availableIndices.Count)];
     }
 
-    private Transform GetRandomSpawnPoint()
+    private int GetRandomUnusedSpawnIndex()
     {
-        if (spawnPoints == null || spawnPoints.Length == 0)
+        if (usedSpawnIndices.Count >= spawnPoints.Length) return -1;
+
+        List<int> availableIndices = new List<int>();
+        for (int i = 0; i < spawnPoints.Length; i++)
         {
-            Debug.LogWarning("No hay puntos de spawn definidos. Usando la posición (0,0,0).");
-            return null; 
+            if (!usedSpawnIndices.Contains(i))
+                availableIndices.Add(i);
         }
 
-        int randomIndex = Random.Range(0, spawnPoints.Length);
-        return spawnPoints[randomIndex];
+        return availableIndices[Random.Range(0, availableIndices.Count)];
     }
 
     [ClientRpc]
-    private void InformClientAboutModelClientRpc(ulong clientId, int modelIndex)
+    private void InformClientAboutModelClientRpc(int modelIndex, ClientRpcParams rpcParams = default)
     {
-        if (NetworkManager.Singleton.LocalClientId == clientId)
-        {
-            Debug.Log($"Te ha sido asignado el modelo de jugador: {modelIndex}");
-        }
+        Debug.Log($"Te ha sido asignado el modelo de jugador: {modelIndex}");
     }
 }
