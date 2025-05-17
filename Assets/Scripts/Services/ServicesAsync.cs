@@ -9,7 +9,6 @@ public class ServicesAsync : MonoBehaviour
     private void Start()
     {
         httpHandler = new HttpHandlerSync();
-        CreateGame();
     }
     public void CreateGame()
     {
