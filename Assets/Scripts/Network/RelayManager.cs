@@ -61,6 +61,7 @@ public class RelayManager : MonoBehaviour
 
     public async Task<bool> JoinRelay(string joinCode)
     {
+        Debug.Log($"Intentando unirse al Relay con código: {joinCode}");
         try
         {
             JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
