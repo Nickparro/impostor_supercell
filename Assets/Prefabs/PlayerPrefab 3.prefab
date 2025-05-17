@@ -1923,6 +1923,7 @@ GameObject:
   - component: {fileID: 1984897601347709155}
   - component: {fileID: 7203503997794510924}
   - component: {fileID: -9099665919486640089}
+  - component: {fileID: 9194516703466836092}
   m_Layer: 0
   m_Name: PlayerPrefab 3
   m_TagString: Untagged
@@ -1992,6 +1993,30 @@ MonoBehaviour:
   maxVerticalAngle: 45
   minNeckAngleZ: -45
   maxNeckAngleZ: 45
+--- !u!114 &9194516703466836092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7945144561168584557}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e12631f07b9bcca49b0a79359e6ebb0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  IsImpostor:
+    m_InternalValue: 0
+  IsEliminated:
+    m_InternalValue: 0
+  HasAnswered:
+    m_InternalValue: 0
+  HasAccused:
+    m_InternalValue: 0
+  id:
+    m_InternalValue: 0
+  Strikes: 0
 --- !u!1 &8036088163325843041
 GameObject:
   m_ObjectHideFlags: 0

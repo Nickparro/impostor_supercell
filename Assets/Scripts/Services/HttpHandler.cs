@@ -3,6 +3,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Collections;
+using System.Threading.Tasks;
 public interface IHttpResponseDeserializer
 {
     public T Deserialice<T>(string strData);
@@ -41,6 +42,21 @@ public class HttpHandlerSync
         {
             Debug.LogError("Error: " + request.error);
             onError?.Invoke(request.error);
+        }
+    }
+
+    public async Task<string> GetAsync(string url)
+    {
+        using UnityWebRequest request = UnityWebRequest.Get(url);
+        await request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success)
+        {
+            return request.downloadHandler.text;
+        }
+        else
+        {
+            throw new Exception(request.error);
         }
     }
     public IEnumerator Post(string url, string jsonBody, System.Action<string> onSuccess, System.Action<string> onError = null)

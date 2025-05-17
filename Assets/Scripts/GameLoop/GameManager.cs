@@ -3,6 +3,9 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Collections;
+using System.Threading.Tasks;
+using System;
 
 public enum GamePhase { Contextualization, Questions, Accusation, Strike, GameOver }
 
@@ -11,25 +14,36 @@ public class GameManager : NetworkBehaviour
     public static GameManager Instance;
 
     [SerializeField] private float phaseDelay = 2f;
+    [SerializeField] private ServicesAsync services;
 
     public NetworkVariable<GamePhase> CurrentPhase = new NetworkVariable<GamePhase>(GamePhase.Contextualization, NetworkVariableReadPermission.Everyone);
-
+    public NetworkVariable<FixedString32Bytes> gameID = new NetworkVariable<FixedString32Bytes>(new FixedString32Bytes(""), NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private List<PlayerData> players = new();
     private PlayerData impostor;
     private int round = 1;
 
     private void Awake() => Instance = this;
 
-    public override void OnNetworkSpawn()
+    public async void StartGame()
     {
-        if (IsServer)
-            StartCoroutine(GameLoop());
+        if (IsHost)
+        {
+            Debug.Log("start gameeeeeeeee");
+            string id = await services.CreateGame();
+            if (!string.IsNullOrEmpty(id))
+            {
+                gameID.Value = id;
+                StartCoroutine(GameLoop());
+            }
+            else
+            {
+                Debug.LogWarning("No se pudo obtener el Game ID.");
+            }
+        }
     }
 
     private IEnumerator GameLoop()
     {
-        AssignRoles();
-
         while (CurrentPhase.Value != GamePhase.GameOver)
         {
             switch (CurrentPhase.Value)
@@ -62,23 +76,41 @@ public class GameManager : NetworkBehaviour
         }
     }
 
-    private void AssignRoles()
+    private async void AssignRoles()
     {
         players = PlayerData.AllPlayers.Values.ToList();
-        impostor = players[Random.Range(0, players.Count)];
-        impostor.IsImpostor.Value = true;
-
         foreach (var player in players)
         {
-            string roleInfo = player == impostor ? "" : GenerateInnocentContext(player);
+            PlayerRoleResponse rol = await services.GetPlayerRole(gameID.Value.ToString(), player.id.Value.ToString());
+            player.IsImpostor.Value = rol.role.is_guilty;
+            string roleInfo = player.IsImpostor.Value ? "" : rol.role.facade;
             player.AssignRoleClientRpc(roleInfo);
+            player.ShowRolePanelClientRpc(roleInfo, rol.role.hidden);
         }
     }
 
+    [ClientRpc]
+    private void ShowIAContextClientRpc()
+    {
+        ShowIAContext();
+    }
+
+
+    private async void ShowIAContext()
+    {
+        PlayerRoleResponse rol = await services.GetPlayerRole(gameID.Value.ToString(), "1");
+        UIManager.Instance.ShowIAPanel(rol.scenario.intro);
+    }
+
+
     private IEnumerator ContextualizationPhase()
     {
+        yield return new WaitForSeconds(5f);
         CurrentPhase.Value = GamePhase.Contextualization;
-        BroadcastScenarioClientRpc("Un crimen ocurrió en el castillo...");
+        ShowIAContextClientRpc();
+        yield return new WaitForSeconds(13f);
+        AssignRoles();
+        yield return new WaitForSeconds(13f);
         yield return new WaitForSeconds(phaseDelay);
         CurrentPhase.Value = GamePhase.Questions;
     }
@@ -86,22 +118,43 @@ public class GameManager : NetworkBehaviour
     private IEnumerator QuestionsPhase()
     {
         CurrentPhase.Value = GamePhase.Questions;
-
         foreach (var player in players)
         {
             if (!player.IsEliminated.Value)
-                AskQuestionClientRpc(player.OwnerClientId);
-            yield return new WaitUntil(() => player.HasAnswered.Value);
+            {
+                TaskCompletionSource<PlayerQuestionResponse> tcs = new TaskCompletionSource<PlayerQuestionResponse>();
+                FetchQuestionForPlayer(player, tcs);
+                yield return new WaitUntil(() => tcs.Task.IsCompleted);
+                PlayerQuestionResponse response = tcs.Task.Result;
+                AskQuestionClientRpc(player.OwnerClientId, response.question);
+                yield return new WaitUntil(() => player.HasAnswered.Value);
+            }
         }
-
         yield return null;
         CurrentPhase.Value = GamePhase.Accusation;
     }
 
+    private async void FetchQuestionForPlayer(PlayerData player, TaskCompletionSource<PlayerQuestionResponse> tcs)
+    {
+        try
+        {
+            PlayerQuestionResponse response = await services.GeneratePlayerQuestion(
+                gameID.Value.ToString(),
+                player.id.Value.ToString()
+            );
+            tcs.SetResult(response);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Error al obtener pregunta: {ex.Message}");
+            tcs.SetException(ex);
+        }
+    }
+
+
     private IEnumerator AccusationPhase()
     {
         CurrentPhase.Value = GamePhase.Accusation;
-
         foreach (var player in players)
         {
             if (!player.IsEliminated.Value)
@@ -117,7 +170,7 @@ public class GameManager : NetworkBehaviour
     {
         CurrentPhase.Value = GamePhase.Strike;
 
-        var guilty = DecideGuiltyPlayer();
+        var guilty = DecideGuiltyPlayer(); // lógica simple o IA futura
         if (guilty != null)
         {
             guilty.AddStrike();
@@ -138,11 +191,6 @@ public class GameManager : NetworkBehaviour
         return eliminated >= players.Count / 2;
     }
 
-    private string GenerateInnocentContext(PlayerData player)
-    {
-        return $"Tu personaje es el jardinero. Estabas podando rosas al momento del crimen.";
-    }
-
     private PlayerData DecideGuiltyPlayer()
     {
         // Prototipo: simplemente devuelve el primer acusado con más votos
@@ -150,17 +198,11 @@ public class GameManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void BroadcastScenarioClientRpc(string text)
-    {
-        Debug.Log($"Escenario: {text}");
-    }
-
-    [ClientRpc]
-    private void AskQuestionClientRpc(ulong targetClientId)
+    private void AskQuestionClientRpc(ulong targetClientId, string question)
     {
         if (NetworkManager.Singleton.LocalClientId == targetClientId)
         {
-           // UIManager.Instance.ShowQuestion("¿Dónde estabas cuando ocurrió el crimen?");
+             UIManager.Instance.ShowQuestion(question);
         }
     }
 
@@ -169,7 +211,7 @@ public class GameManager : NetworkBehaviour
     {
         if (NetworkManager.Singleton.LocalClientId == targetClientId)
         {
-           // UIManager.Instance.ShowAccusationPanel();
+            // UIManager.Instance.ShowAccusationPanel();
         }
     }
 

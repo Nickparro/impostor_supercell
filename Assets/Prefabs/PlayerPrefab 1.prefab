@@ -1283,6 +1283,7 @@ GameObject:
   - component: {fileID: 3685651658302836644}
   - component: {fileID: 8111469811366721019}
   - component: {fileID: -9172193431855834503}
+  - component: {fileID: 4285432625753584855}
   m_Layer: 0
   m_Name: PlayerPrefab 1
   m_TagString: Untagged
@@ -1352,6 +1353,30 @@ MonoBehaviour:
   maxVerticalAngle: 45
   minNeckAngleZ: -45
   maxNeckAngleZ: 45
+--- !u!114 &4285432625753584855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4929983883939140065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e12631f07b9bcca49b0a79359e6ebb0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  IsImpostor:
+    m_InternalValue: 0
+  IsEliminated:
+    m_InternalValue: 0
+  HasAnswered:
+    m_InternalValue: 0
+  HasAccused:
+    m_InternalValue: 0
+  id:
+    m_InternalValue: 0
+  Strikes: 0
 --- !u!1 &4944304956690308293
 GameObject:
   m_ObjectHideFlags: 0
