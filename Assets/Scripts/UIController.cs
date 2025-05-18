@@ -5,6 +5,7 @@ using UnityEngine.UI;
 public class UIController : MonoBehaviour
 {
     public static UIController Instance;
+    public Joystick lookJoystick;
     [Header("Panels")]
     [SerializeField] private GameObject characterContextPanel;
     [SerializeField] private GameObject sherlockDialoguePanel;
@@ -43,10 +44,6 @@ public class UIController : MonoBehaviour
         answerButton.onClick.AddListener(OpenAnswerInput);
         backButton.onClick.AddListener(CloseAnswerInput);
         sendButton.onClick.AddListener(SendAnswer);
-    }
-    private void Update()
-    {
-
     }
     public void UpdateStrike() 
     {
