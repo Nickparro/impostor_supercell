@@ -12,6 +12,7 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private TMP_InputField joinCodeInput;
     [SerializeField] private GameObject menuPanel;
     [SerializeField] private GameObject lobbyPanel;
+    [SerializeField] private GameObject cameraMenu, cameraLobby;
 
     [SerializeField] private RelayManager relayManager;
 
@@ -24,6 +25,8 @@ public class LobbyManager : MonoBehaviour
         menuPanel.SetActive(true);
         lobbyPanel.SetActive(false);
         startGameButton.gameObject.SetActive(false);
+        cameraMenu.SetActive(true);
+        cameraLobby.SetActive(false);
     }
 
     private async void CreateLobby()
@@ -37,6 +40,8 @@ public class LobbyManager : MonoBehaviour
             NetworkManager.Singleton.StartHost();
             menuPanel.SetActive(false);
             lobbyPanel.SetActive(true);
+            cameraMenu.SetActive(false);
+            cameraLobby.SetActive(true);
 
             startGameButton.gameObject.SetActive(true);
         }
@@ -65,6 +70,8 @@ public class LobbyManager : MonoBehaviour
             NetworkManager.Singleton.StartClient();
             menuPanel.SetActive(false);
             lobbyPanel.SetActive(true);
+            cameraMenu.SetActive(false);
+            cameraLobby.SetActive(true);
         }
         else
         {

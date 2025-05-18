@@ -9,6 +9,8 @@ public class UIController : MonoBehaviour
     [SerializeField] private GameObject characterContextPanel;
     [SerializeField] private GameObject sherlockDialoguePanel;
     [SerializeField] private GameObject playerInputPanel;
+    [SerializeField] private GameObject[] strikes;
+    private int currentStrikeIndex = 0;
 
     [Header("Buttons")]
     [SerializeField] private Button characterButton;
@@ -41,6 +43,25 @@ public class UIController : MonoBehaviour
         answerButton.onClick.AddListener(OpenAnswerInput);
         backButton.onClick.AddListener(CloseAnswerInput);
         sendButton.onClick.AddListener(SendAnswer);
+    }
+    private void Update()
+    {
+
+    }
+    public void UpdateStrike() 
+    {
+        if (currentStrikeIndex < strikes.Length)
+        {
+            GameObject strike = strikes[currentStrikeIndex];
+
+            strike.SetActive(true);
+            Debug.Log("activandito");
+            currentStrikeIndex++;
+        }
+        else
+        {
+            Debug.Log("Ya se encendieron todos los strikes.");
+        }
     }
     public void OpenSherlockDialogue()
     {
