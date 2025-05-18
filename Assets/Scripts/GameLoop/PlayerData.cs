@@ -3,13 +3,14 @@ using Unity.Netcode;
 using UnityEngine;
 using Unity.Collections;
 using System.Collections;
+using TMPro;
 
 public class PlayerData : NetworkBehaviour
 {
     public static readonly Dictionary<ulong, PlayerData> AllPlayers = new Dictionary<ulong, PlayerData>();
     private static int nextId = 1;
     public static PlayerData LocalPlayer;
-
+    [SerializeField] public TextMeshPro playerNameText;
     public NetworkVariable<bool> IsImpostor = new NetworkVariable<bool>(false);
     public NetworkVariable<bool> IsEliminated = new NetworkVariable<bool>(false);
     public NetworkVariable<bool> HasAnswered = new NetworkVariable<bool>(false);
@@ -23,7 +24,6 @@ public class PlayerData : NetworkBehaviour
         if (IsOwner)
         {
             LocalPlayer = this;
-            Debug.Log("Este es mi PlayerData.");
         }
         if (IsServer)
         {
