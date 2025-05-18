@@ -13,6 +13,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI iaDescriptionText;
 
     [SerializeField] private TextMeshProUGUI questionText;
+    [SerializeField] private TMP_InputField answerInputField;
 
     public static UIManager Instance { get; private set; }
     private void Awake()
@@ -56,8 +57,13 @@ public class UIManager : MonoBehaviour
 
     public void ShowQuestion(string question)
     {
-        questionText.gameObject.SetActive(true);
-
+        iaPanel.gameObject.SetActive(true);
         questionText.text = question;
+    }
+
+    public void SendAnswer()
+    {
+        string answer = answerInputField.text;
+        GameManager.Instance.SendAnswerAsync(answer);
     }
 }

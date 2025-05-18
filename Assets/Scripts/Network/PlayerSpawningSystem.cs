@@ -25,10 +25,7 @@ public class PlayerSpawningSystem : NetworkBehaviour
 
         if (IsServer)
         {
-            // Por seguridad, conectar al evento
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-
-            // Spawnear a todos los clientes que ya están conectados (incluido el host)
             foreach (var client in NetworkManager.Singleton.ConnectedClientsIds)
             {
                 SpawnPlayerForClient(client);
@@ -70,7 +67,6 @@ public class PlayerSpawningSystem : NetworkBehaviour
         Transform spawnPoint = spawnPoints[spawnIndex];
         GameObject playerInstance = Instantiate(playerPrefabs[modelIndex], spawnPoint.position, spawnPoint.rotation);
         playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
-
         // Enviar solo al cliente correspondiente
         var rpcParams = new ClientRpcParams
         {
