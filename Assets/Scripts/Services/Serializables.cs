@@ -102,6 +102,13 @@ public class StrikesResponses
 }
 
 [System.Serializable]
+public class Strike
+{
+    public string player_id;
+    public string reason;
+}
+
+[System.Serializable]
 public class GameStateResponse
 {
     public string phase;

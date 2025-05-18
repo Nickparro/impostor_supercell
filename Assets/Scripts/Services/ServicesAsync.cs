@@ -285,7 +285,7 @@ public class ServicesAsync : MonoBehaviour
         return data;
     }
 
-    public async Task<string> PostStrikeToPlayer(string gameId)
+    public async Task<Strike> PostStrikeToPlayer(string gameId)
     {
         string apiUrl = baseApiUri + "game/" + gameId + "/strikes";
 
@@ -306,9 +306,10 @@ public class ServicesAsync : MonoBehaviour
         var responseText = request.downloadHandler.text;
         Debug.Log("Strike aplicado correctamente.");
         Debug.Log("Respuesta del servidor: " + responseText);
-
-        return responseText;
+        Strike response = JsonUtility.FromJson<Strike>(responseText);
+        return response;
     }
+
 
     public async Task<GameStateResponse> GetGeneralGameState(string gameId)
     {

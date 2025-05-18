@@ -13,6 +13,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI iaDescriptionText;
 
     [SerializeField] private TextMeshProUGUI questionText;
+    [SerializeField] private TMP_InputField answerInputField;
 
     public static UIManager Instance { get; private set; }
     private void Awake()
@@ -48,6 +49,13 @@ public class UIManager : MonoBehaviour
         StartCoroutine(HideIaPanelAfterDelay(12f));
     }
 
+    public void ShowIAPanelStrike(string ia)
+    {
+        iaPanel.gameObject.SetActive(true);
+        iaDescriptionText.text = ia;
+        StartCoroutine(HideIaPanelAfterDelay(12f));
+    }
+
     private IEnumerator HideIaPanelAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
@@ -56,8 +64,13 @@ public class UIManager : MonoBehaviour
 
     public void ShowQuestion(string question)
     {
-        questionText.gameObject.SetActive(true);
-
+        iaPanel.gameObject.SetActive(true);
         questionText.text = question;
+    }
+
+    public void SendAnswer()
+    {
+        string answer = answerInputField.text;
+        GameManager.Instance.SendAnswerAsync(answer);
     }
 }

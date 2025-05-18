@@ -7,20 +7,29 @@ using Unity.Collections;
 using System.Threading.Tasks;
 using System;
 
-public enum GamePhase { Contextualization, Questions, Accusation, Strike, GameOver }
+public enum GamePhase { Contextualization, Questions, Strike, GameOver }
 
 public class GameManager : NetworkBehaviour
 {
     public static GameManager Instance;
+    [HideInInspector]
+    public PlayerData localPlayer;
+    private Dictionary<ulong, PlayerData> allPlayers => PlayerData.AllPlayers;
 
     [SerializeField] private float phaseDelay = 2f;
-    [SerializeField] private ServicesAsync services;
+    [SerializeField] public ServicesAsync services;
+
+    // Number of questions each player should answer per round
+    [SerializeField] private int questionsPerPlayer = 2;
 
     public NetworkVariable<GamePhase> CurrentPhase = new NetworkVariable<GamePhase>(GamePhase.Contextualization, NetworkVariableReadPermission.Everyone);
     public NetworkVariable<FixedString32Bytes> gameID = new NetworkVariable<FixedString32Bytes>(new FixedString32Bytes(""), NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private List<PlayerData> players = new();
     private PlayerData impostor;
     private int round = 1;
+
+    private NetworkVariable<int> currentPlayerIndex = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private NetworkVariable<int> currentQuestionNumber = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private void Awake() => Instance = this;
 
@@ -42,6 +51,32 @@ public class GameManager : NetworkBehaviour
         }
     }
 
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        if (IsClient)
+        {
+            StartCoroutine(InitializeLocalPlayer());
+        }
+    }
+
+    private IEnumerator InitializeLocalPlayer()
+    {
+        ulong localClientId = NetworkManager.Singleton.LocalClientId;
+
+        while (localPlayer == null)
+        {
+            if (PlayerData.AllPlayers.TryGetValue(localClientId, out PlayerData player))
+            {
+                localPlayer = player;
+                Debug.Log($"GameManager: Jugador local inicializado con ID {player.id.Value} para cliente {localClientId}");
+                break;
+            }
+            yield return new WaitForSeconds(0.1f);
+        }
+    }
+
     private IEnumerator GameLoop()
     {
         while (CurrentPhase.Value != GamePhase.GameOver)
@@ -56,21 +91,17 @@ public class GameManager : NetworkBehaviour
                     yield return QuestionsPhase();
                     break;
 
-                case GamePhase.Accusation:
-                    yield return AccusationPhase();
-                    break;
-
                 case GamePhase.Strike:
                     yield return StrikePhase();
                     break;
             }
 
-            if (CheckWinConditions())
-            {
-                CurrentPhase.Value = GamePhase.GameOver;
-                EndGameClientRpc(impostor.Strikes >= 2);
-                yield break;
-            }
+             if (CheckWinConditionsAsync())
+             {
+                 CurrentPhase.Value = GamePhase.GameOver;
+                 EndGameClientRpc(impostor.Strikes >= 2);
+                 yield break;
+             }
 
             yield return new WaitForSeconds(phaseDelay);
         }
@@ -83,9 +114,10 @@ public class GameManager : NetworkBehaviour
         {
             PlayerRoleResponse rol = await services.GetPlayerRole(gameID.Value.ToString(), player.id.Value.ToString());
             player.IsImpostor.Value = rol.role.is_guilty;
+            if (rol.role.is_guilty) impostor = player;
             string roleInfo = player.IsImpostor.Value ? "" : rol.role.facade;
             player.AssignRoleClientRpc(roleInfo);
-            player.ShowRolePanelClientRpc(roleInfo, rol.role.hidden);
+            player.ShowRolePanelClientRpc(rol.role.name, roleInfo + " " + rol.role.hidden);
         }
     }
 
@@ -95,13 +127,41 @@ public class GameManager : NetworkBehaviour
         ShowIAContext();
     }
 
-
     private async void ShowIAContext()
     {
         PlayerRoleResponse rol = await services.GetPlayerRole(gameID.Value.ToString(), "1");
         UIManager.Instance.ShowIAPanel(rol.scenario.intro);
     }
 
+    [ClientRpc]
+    private void ShowIAStrikeClientRpc(string ia)
+    {
+        UIManager.Instance.ShowIAPanel(ia);
+    }
+
+    public async void SendAnswerAsync(string answer)
+    {
+        await services.AnswerSherlockQuestion(gameID.Value.ToString(), PlayerData.LocalPlayer.id.ToString(), answer);
+
+        if (IsHost)
+        {
+            PlayerData.LocalPlayer.HasAnswered.Value = true;
+        }
+        else if (PlayerData.LocalPlayer != null)
+        {
+            NotifyAnsweredServerRpc(NetworkManager.Singleton.LocalClientId);
+        }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void NotifyAnsweredServerRpc(ulong clientId)
+    {
+        var player = players.FirstOrDefault(p => p.OwnerClientId == clientId);
+        if (player != null)
+        {
+            player.HasAnswered.Value = true;
+        }
+    }
 
     private IEnumerator ContextualizationPhase()
     {
@@ -118,26 +178,80 @@ public class GameManager : NetworkBehaviour
     private IEnumerator QuestionsPhase()
     {
         CurrentPhase.Value = GamePhase.Questions;
-        foreach (var player in players)
+        Debug.Log("Starting Questions Phase");
+
+        // Reset question counter at the start of the phase
+        currentQuestionNumber.Value = 0;
+
+        // Only process active players
+        var activePlayers = players.Where(p => !p.IsEliminated.Value).ToList();
+
+        // Loop for the specified number of questions per player
+        for (int questionRound = 1; questionRound <= questionsPerPlayer; questionRound++)
         {
-            if (!player.IsEliminated.Value)
+            currentQuestionNumber.Value = questionRound;
+            Debug.Log($"Starting question round {currentQuestionNumber.Value} of {questionsPerPlayer}");
+
+            // Reset all players' HasAnswered flags for this question round
+            foreach (var player in activePlayers)
             {
+                player.HasAnswered.Value = false;
+            }
+
+            // Ask each player a question in this round
+            for (int i = 0; i < activePlayers.Count; i++)
+            {
+                var player = activePlayers[i];
+                currentPlayerIndex.Value = i; // Update the network variable to track current player
+
                 TaskCompletionSource<PlayerQuestionResponse> tcs = new TaskCompletionSource<PlayerQuestionResponse>();
                 FetchQuestionForPlayer(player, tcs);
                 yield return new WaitUntil(() => tcs.Task.IsCompleted);
-                PlayerQuestionResponse response = tcs.Task.Result;
-                AskQuestionClientRpc(player.OwnerClientId, response.question);
-                yield return new WaitUntil(() => player.HasAnswered.Value);
+
+                if (tcs.Task.IsCompletedSuccessfully)
+                {
+                    PlayerQuestionResponse response = tcs.Task.Result;
+                    // Send the question to the specific player's client
+                    AskQuestionClientRpc(player.OwnerClientId, response.question);
+
+                    // Wait for this specific player to answer before moving to the next player
+                    yield return new WaitUntil(() => player.HasAnswered.Value);
+
+                    // Add a short delay between players
+                    yield return new WaitForSeconds(1f);
+                }
+                else
+                {
+                    Debug.LogError($"Failed to fetch question for player {player.id.Value}");
+                    // Skip this player if we couldn't get a question
+                    continue;
+                }
             }
+
+            // Add a short delay between question rounds
+            yield return new WaitForSeconds(2f);
         }
-        yield return null;
-        CurrentPhase.Value = GamePhase.Accusation;
+
+        Debug.Log("Questions Phase Completed - Moving to Accusation Phase");
+        currentPlayerIndex.Value = -1;
+        currentQuestionNumber.Value = 0;
+        yield return new WaitForSeconds(2f);
+
+        GetSummaryAsync();
+        // Move to the next phase
+        CurrentPhase.Value = GamePhase.Strike;
     }
 
+    async void GetSummaryAsync()
+    {
+        SherlockAnswerSummary summary = await services.GetSherlockAnswerSummary(gameID.Value.ToString());
+        UIManager.Instance.ShowIAPanel(summary.summary);
+    }
     private async void FetchQuestionForPlayer(PlayerData player, TaskCompletionSource<PlayerQuestionResponse> tcs)
     {
         try
         {
+            Debug.Log($"Fetching question {currentQuestionNumber.Value} for player {player.id.Value}");
             PlayerQuestionResponse response = await services.GeneratePlayerQuestion(
                 gameID.Value.ToString(),
                 player.id.Value.ToString()
@@ -151,67 +265,54 @@ public class GameManager : NetworkBehaviour
         }
     }
 
-
-    private IEnumerator AccusationPhase()
-    {
-        CurrentPhase.Value = GamePhase.Accusation;
-        foreach (var player in players)
-        {
-            if (!player.IsEliminated.Value)
-                AskAccusationClientRpc(player.OwnerClientId);
-            yield return new WaitUntil(() => player.HasAccused.Value);
-        }
-
-        yield return null;
-        CurrentPhase.Value = GamePhase.Strike;
-    }
-
     private IEnumerator StrikePhase()
     {
+        StopCoroutine(QuestionsPhase());
         CurrentPhase.Value = GamePhase.Strike;
-
-        var guilty = DecideGuiltyPlayer(); // lógica simple o IA futura
-        if (guilty != null)
-        {
-            guilty.AddStrike();
-            UpdateStrikesClientRpc(guilty.OwnerClientId, guilty.Strikes);
-        }
-
+        Debug.Log("Starting Strike Phase");
+        GetStikeAsync();
         round++;
+        Debug.Log("Strike Phase Completed - Moving back to Questions Phase");
+        yield return new WaitForSeconds(3f); // Allow time for players to see the results
         CurrentPhase.Value = GamePhase.Questions;
-        yield return null;
     }
 
-    private bool CheckWinConditions()
+    async void GetStikeAsync()
+    {
+        await services.PostGoToNextPhase(gameID.Value.ToString());
+        Strike strike = await services.PostStrikeToPlayer(gameID.Value.ToString());
+        if (strike != null)
+        {
+            foreach (var player in players)
+            {
+                if (player.id.Value.ToString() == strike.player_id)
+                {
+                    player.Strikes++;
+                    UpdateStrikesClientRpc(player.OwnerClientId, player.Strikes);
+                    Debug.Log($"Player {player.id.Value} received a strike. Total: {player.Strikes}");
+                    ShowIAStrikeClientRpc(strike.reason);
+                    break;
+                }
+            }
+        }
+
+    }
+    private bool CheckWinConditionsAsync()
     {
         if (impostor.Strikes >= 2)
             return true;
-
         int eliminated = players.FindAll(p => p.IsEliminated.Value).Count;
         return eliminated >= players.Count / 2;
     }
 
-    private PlayerData DecideGuiltyPlayer()
-    {
-        // Prototipo: simplemente devuelve el primer acusado con más votos
-        return null;
-    }
 
     [ClientRpc]
     private void AskQuestionClientRpc(ulong targetClientId, string question)
     {
         if (NetworkManager.Singleton.LocalClientId == targetClientId)
         {
-             UIManager.Instance.ShowQuestion(question);
-        }
-    }
-
-    [ClientRpc]
-    private void AskAccusationClientRpc(ulong targetClientId)
-    {
-        if (NetworkManager.Singleton.LocalClientId == targetClientId)
-        {
-            // UIManager.Instance.ShowAccusationPanel();
+            Debug.Log($"Showing question {currentQuestionNumber.Value} to player {targetClientId}: {question}");
+            UIManager.Instance.ShowQuestion(question);
         }
     }
 
@@ -221,6 +322,7 @@ public class GameManager : NetworkBehaviour
         if (NetworkManager.Singleton.LocalClientId == targetClientId)
         {
             Debug.Log($"Recibiste un strike. Total: {strikes}");
+            localPlayer.AddStrikeServerRpc();
         }
     }
 
@@ -229,5 +331,13 @@ public class GameManager : NetworkBehaviour
     {
         string msg = innocentsWon ? "¡Los inocentes ganan!" : "¡El impostor gana!";
         //UIManager.Instance.ShowEndScreen(msg);
+    }
+
+    public void ConfirmAnswerSubmitted()
+    {
+        if (PlayerData.LocalPlayer != null)
+        {
+            NotifyAnsweredServerRpc(NetworkManager.Singleton.LocalClientId);
+        }
     }
 }

@@ -2,18 +2,48 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using Unity.Collections;
+using System.Collections;
 
 public class PlayerData : NetworkBehaviour
 {
     public static readonly Dictionary<ulong, PlayerData> AllPlayers = new Dictionary<ulong, PlayerData>();
     private static int nextId = 1;
+    public static PlayerData LocalPlayer;
 
     public NetworkVariable<bool> IsImpostor = new NetworkVariable<bool>(false);
     public NetworkVariable<bool> IsEliminated = new NetworkVariable<bool>(false);
     public NetworkVariable<bool> HasAnswered = new NetworkVariable<bool>(false);
     public NetworkVariable<bool> HasAccused = new NetworkVariable<bool>(false);
     public NetworkVariable<int> id = new NetworkVariable<int>();
+
     public int Strikes = 0;
+
+    public override void OnNetworkSpawn()
+    {
+        if (IsOwner)
+        {
+            LocalPlayer = this;
+            Debug.Log("Este es mi PlayerData.");
+        }
+        if (IsServer)
+        {
+            // Asignar ID único
+            id.Value = nextId;
+            nextId++;
+
+            // Registrar en el diccionario
+            AllPlayers[OwnerClientId] = this;
+
+            Debug.Log($"Servidor: Agregado jugador con ID Cliente {OwnerClientId}, PlayerID {id.Value}");
+            LogAllPlayers();
+        }
+        if (IsServer && GameManager.Instance != null)
+        {
+            GameManager.Instance.StartGame();
+        }
+
+        base.OnNetworkSpawn();
+    }
 
     public static void LogAllPlayers()
     {
@@ -47,32 +77,28 @@ public class PlayerData : NetworkBehaviour
             IsEliminated.Value = true;
     }
 
-    public override void OnNetworkSpawn()
+    [ServerRpc]
+    public void AddStrikeServerRpc()
     {
-        Debug.Log($"OnNetworkSpawn para cliente ID: {OwnerClientId}, IsServer: {IsServer}, IsOwner: {IsOwner}");
-
-        if (IsServer || NetworkManager.Singleton.IsHost)
-        {
-            AllPlayers[OwnerClientId] = this;
-            id.Value = nextId;
-            nextId++;
-            Debug.Log($"Servidor: Agregado jugador con ID Cliente {OwnerClientId}, PlayerID {id.Value}");
-            LogAllPlayers();
-            GameManager.Instance.StartGame();
-        }
-        base.OnNetworkSpawn();
-       
+        AddStrike();
     }
 
     public override void OnNetworkDespawn()
     {
         Debug.Log($"OnNetworkDespawn para cliente ID: {OwnerClientId}, IsServer: {IsServer}");
 
+        // Eliminar del diccionario (solo en el servidor)
         if (IsServer)
         {
             Debug.Log($"Servidor: Eliminando jugador con ID Cliente {OwnerClientId}");
             AllPlayers.Remove(OwnerClientId);
             LogAllPlayers();
+        }
+
+        // Si es nuestro jugador local, limpiamos la referencia
+        if (IsOwner && GameManager.Instance != null && GameManager.Instance.localPlayer == this)
+        {
+            GameManager.Instance.localPlayer = null;
         }
 
         base.OnNetworkDespawn();
