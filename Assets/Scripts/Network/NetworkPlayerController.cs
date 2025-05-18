@@ -41,27 +41,23 @@ public class NetworkPlayerController : NetworkBehaviour
 
     void Update()
     {
-        if (IsOwner)
-        {
-            HandleTouchLook();
+
+           // HandleTouchLook();
 #if UNITY_EDITOR
-            //if (Input.GetMouseButton(0))
-            //{
-            //    HandleMouseLook();
-            //}
+            if (Input.GetMouseButton(0))
+            {
+                HandleMouseLook();
+            }
 #else
         HandleTouchLook();
 #endif
             neckTransform.localEulerAngles = new Vector3(verticalLookRotation, 0f, neckLookRotation);
             neckRotation.Value = neckTransform.localRotation;
-        }
-        else
-        {
+
             neckTransform.localRotation = Quaternion.Lerp(
                 neckTransform.localRotation,
                 neckRotation.Value,
                 Time.deltaTime * 10f);
-        }
     }
 
     void HandleTouchLook()
