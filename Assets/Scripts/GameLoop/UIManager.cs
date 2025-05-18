@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
 {
@@ -11,6 +12,10 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI roleDescriptionText;
 
     [SerializeField] private TextMeshProUGUI iaDescriptionText;
+    [SerializeField] private Button answerButton;
+
+    [SerializeField] private TextMeshProUGUI guiltText;
+
 
     [SerializeField] private TextMeshProUGUI questionText;
     [SerializeField] private TMP_InputField answerInputField;
@@ -28,11 +33,12 @@ public class UIManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
-    public void ShowRolePanel(string roleName, string roleDescription)
+    public void ShowRolePanel(string roleName, string roleDescription, bool isGuilty)
     {
         rolePanel.gameObject.SetActive(true);
         roleNameText.text = roleName;
         roleDescriptionText.text = roleDescription;
+        guiltText.text = isGuilty ? "Guilty" : "Innocent";
         StartCoroutine(HideRolePanelAfterDelay(12f));
     }
 
@@ -47,6 +53,7 @@ public class UIManager : MonoBehaviour
         iaPanel.gameObject.SetActive(true);
         iaDescriptionText.text = iaDescription;
         StartCoroutine(HideIaPanelAfterDelay(12f));
+        answerButton.gameObject.SetActive(false);
     }
 
     public void ShowIAPanelStrike(string ia)
@@ -66,6 +73,7 @@ public class UIManager : MonoBehaviour
     {
         iaPanel.gameObject.SetActive(true);
         questionText.text = question;
+        answerButton.gameObject.SetActive(true);
     }
 
     public void SendAnswer()

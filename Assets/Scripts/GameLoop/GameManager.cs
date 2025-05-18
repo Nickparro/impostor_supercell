@@ -29,7 +29,7 @@ public class GameManager : NetworkBehaviour
     private PlayerData impostor;
     private int round = 1;
 
-    private NetworkVariable<int> currentPlayerIndex = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    public NetworkVariable<int> currentPlayerIndex = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private NetworkVariable<int> currentQuestionNumber = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private void Awake() => Instance = this;
@@ -114,11 +114,11 @@ public class GameManager : NetworkBehaviour
         {
             PlayerRoleResponse rol = await services.GetPlayerRole(gameID.Value.ToString(), player.id.Value.ToString());
             player.IsImpostor.Value = rol.role.is_guilty;
-            PlayerData.LocalPlayer.playerNameText.text = rol.role.name;
             if (rol.role.is_guilty) impostor = player;
             string roleInfo = player.IsImpostor.Value ? "" : rol.role.facade;
             player.AssignRoleClientRpc(roleInfo);
-            player.ShowRolePanelClientRpc(rol.role.name, roleInfo + " " + rol.role.hidden);
+            player.AssignNameClientRpc(rol.role.name);
+            player.ShowRolePanelClientRpc(rol.role.name, roleInfo + " " + rol.role.hidden, rol.role.is_guilty);
         }
     }
 
