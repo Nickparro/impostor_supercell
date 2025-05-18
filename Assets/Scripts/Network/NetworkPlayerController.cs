@@ -37,7 +37,6 @@ public class NetworkPlayerController : NetworkBehaviour
         {
             cameraTransform.gameObject.SetActive(false);
         }
-        lookJoystick = UIController.Instance.lookJoystick;
     }
 
     void Update()
