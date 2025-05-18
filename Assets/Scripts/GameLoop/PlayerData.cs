@@ -64,10 +64,18 @@ public class PlayerData : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void ShowRolePanelClientRpc(string roleName, string roleDescription)
+    public void AssignNameClientRpc(string name)
+    {
+        if (!string.IsNullOrEmpty(name))
+            playerNameText.text = name;
+        playerNameText.gameObject.SetActive(true);
+    }
+
+    [ClientRpc]
+    public void ShowRolePanelClientRpc(string roleName, string roleDescription, bool isGuilty)
     {
         if (!IsOwner) return;
-        UIManager.Instance.ShowRolePanel(roleName, roleDescription);
+        UIManager.Instance.ShowRolePanel(roleName, roleDescription, isGuilty);
     }
 
     public void AddStrike()
