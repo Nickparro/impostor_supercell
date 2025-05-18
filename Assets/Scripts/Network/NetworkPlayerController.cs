@@ -21,7 +21,7 @@ public class NetworkPlayerController : NetworkBehaviour
     private float verticalLookRotation = 0f;
     private float neckLookRotation = 0f;
 
-    [SerializeField] private Joystick lookJoystick;
+    private Joystick lookJoystick;
 
 
     private NetworkVariable<Quaternion> neckRotation = new NetworkVariable<Quaternion>(
@@ -37,17 +37,19 @@ public class NetworkPlayerController : NetworkBehaviour
         {
             cameraTransform.gameObject.SetActive(false);
         }
+        lookJoystick = UIController.Instance.lookJoystick;
     }
 
     void Update()
     {
         if (IsOwner)
         {
+            HandleTouchLook();
 #if UNITY_EDITOR
-            if (Input.GetMouseButton(0))
-            {
-                HandleMouseLook();
-            }
+            //if (Input.GetMouseButton(0))
+            //{
+            //    HandleMouseLook();
+            //}
 #else
         HandleTouchLook();
 #endif
@@ -63,24 +65,21 @@ public class NetworkPlayerController : NetworkBehaviour
         }
     }
 
-
-
-
- /*   void HandleTouchLook()
+    void HandleTouchLook()
     {
         Vector2 lookInput = new Vector2(lookJoystick.Horizontal, lookJoystick.Vertical);
 
-        if (lookInput.magnitude > 0.1f) // solo si se está usando
+        if (lookInput.magnitude > 0.1f) 
         {
             float sensitivity = 100f;
-            neckLookRotation += lookInput.x * sensitivity * Time.deltaTime;
+            neckLookRotation -= lookInput.x * sensitivity * Time.deltaTime;
             verticalLookRotation -= lookInput.y * sensitivity * Time.deltaTime;
 
-            neckLookRotation = Mathf.Clamp(neckLookRotation, -60f, 60f);
-            verticalLookRotation = Mathf.Clamp(verticalLookRotation, -30f, 30f);
+            neckLookRotation = Mathf.Clamp(neckLookRotation, -30f, 30f);
+            verticalLookRotation = Mathf.Clamp(verticalLookRotation, -1f, 30f);
         }
     }
- */
+
 
     void HandleMouseLook()
     {
