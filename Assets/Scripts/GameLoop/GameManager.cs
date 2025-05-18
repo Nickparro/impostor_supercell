@@ -237,15 +237,24 @@ public class GameManager : NetworkBehaviour
         currentQuestionNumber.Value = 0;
         yield return new WaitForSeconds(2f);
 
-        GetSummaryAsync();
+        GetSummaryForAllClientsAsync();
         // Move to the next phase
         CurrentPhase.Value = GamePhase.Strike;
     }
 
-    async void GetSummaryAsync()
+    async void GetSummaryForAllClientsAsync()
     {
-        SherlockAnswerSummary summary = await services.GetSherlockAnswerSummary(gameID.Value.ToString());
-        UIManager.Instance.ShowIAPanel(summary.summary);
+        if (IsHost)
+        {
+            SherlockAnswerSummary summary = await services.GetSherlockAnswerSummary(gameID.Value.ToString());
+            ShowSummaryClientRpc(summary.summary);
+        }
+    }
+
+    [ClientRpc]
+    private void ShowSummaryClientRpc(string summary)
+    {
+        UIManager.Instance.ShowIAPanel(summary);
     }
     private async void FetchQuestionForPlayer(PlayerData player, TaskCompletionSource<PlayerQuestionResponse> tcs)
     {
