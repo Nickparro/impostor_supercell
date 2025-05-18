@@ -49,6 +49,13 @@ public class UIManager : MonoBehaviour
         StartCoroutine(HideIaPanelAfterDelay(12f));
     }
 
+    public void ShowIAPanelStrike(string ia)
+    {
+        iaPanel.gameObject.SetActive(true);
+        iaDescriptionText.text = ia;
+        StartCoroutine(HideIaPanelAfterDelay(12f));
+    }
+
     private IEnumerator HideIaPanelAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
