@@ -99,7 +99,6 @@ public class GameManager : NetworkBehaviour
              if (CheckWinConditionsAsync())
              {
                  CurrentPhase.Value = GamePhase.GameOver;
-                 EndGameClientRpc(impostor.Strikes >= 2);
                  yield break;
              }
 
@@ -180,29 +179,22 @@ public class GameManager : NetworkBehaviour
         CurrentPhase.Value = GamePhase.Questions;
         Debug.Log("Starting Questions Phase");
 
-        // Reset question counter at the start of the phase
         currentQuestionNumber.Value = 0;
 
-        // Only process active players
         var activePlayers = players.Where(p => !p.IsEliminated.Value).ToList();
-
-        // Loop for the specified number of questions per player
         for (int questionRound = 1; questionRound <= questionsPerPlayer; questionRound++)
         {
             currentQuestionNumber.Value = questionRound;
             Debug.Log($"Starting question round {currentQuestionNumber.Value} of {questionsPerPlayer}");
-
-            // Reset all players' HasAnswered flags for this question round
             foreach (var player in activePlayers)
             {
                 player.HasAnswered.Value = false;
             }
 
-            // Ask each player a question in this round
             for (int i = 0; i < activePlayers.Count; i++)
             {
                 var player = activePlayers[i];
-                currentPlayerIndex.Value = i; // Update the network variable to track current player
+                currentPlayerIndex.Value = i; 
 
                 TaskCompletionSource<PlayerQuestionResponse> tcs = new TaskCompletionSource<PlayerQuestionResponse>();
                 FetchQuestionForPlayer(player, tcs);
@@ -211,24 +203,16 @@ public class GameManager : NetworkBehaviour
                 if (tcs.Task.IsCompletedSuccessfully)
                 {
                     PlayerQuestionResponse response = tcs.Task.Result;
-                    // Send the question to the specific player's client
                     AskQuestionClientRpc(player.OwnerClientId, response.question);
-
-                    // Wait for this specific player to answer before moving to the next player
                     yield return new WaitUntil(() => player.HasAnswered.Value);
-
-                    // Add a short delay between players
                     yield return new WaitForSeconds(1f);
                 }
                 else
                 {
                     Debug.LogError($"Failed to fetch question for player {player.id.Value}");
-                    // Skip this player if we couldn't get a question
                     continue;
                 }
             }
-
-            // Add a short delay between question rounds
             yield return new WaitForSeconds(2f);
         }
 
@@ -238,7 +222,6 @@ public class GameManager : NetworkBehaviour
         yield return new WaitForSeconds(2f);
 
         GetSummaryForAllClientsAsync();
-        // Move to the next phase
         CurrentPhase.Value = GamePhase.Strike;
     }
 
@@ -282,7 +265,7 @@ public class GameManager : NetworkBehaviour
         GetStikeAsync();
         round++;
         Debug.Log("Strike Phase Completed - Moving back to Questions Phase");
-        yield return new WaitForSeconds(3f); // Allow time for players to see the results
+        yield return new WaitForSeconds(3f);
         CurrentPhase.Value = GamePhase.Questions;
     }
 
@@ -308,10 +291,8 @@ public class GameManager : NetworkBehaviour
     }
     private bool CheckWinConditionsAsync()
     {
-        if (impostor.Strikes >= 2)
-            return true;
         int eliminated = players.FindAll(p => p.IsEliminated.Value).Count;
-        return eliminated >= players.Count / 2;
+        return eliminated >= 2;
     }
 
 

@@ -288,7 +288,7 @@ public class ServicesAsync : MonoBehaviour
     public async Task<Strike> PostStrikeToPlayer(string gameId)
     {
         string apiUrl = baseApiUri + "game/" + gameId + "/strikes";
-
+        Debug.Log(apiUrl);
         using UnityWebRequest request = UnityWebRequest.PostWwwForm(apiUrl, "");
         request.SetRequestHeader("Content-Type", "application/json");
 
