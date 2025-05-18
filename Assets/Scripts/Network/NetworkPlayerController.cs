@@ -6,7 +6,8 @@ public class NetworkPlayerController : NetworkBehaviour
 {
     [Header("References")]
     public Transform neckTransform;  
-    public Transform cameraTransform;   
+    public Transform cameraTransform;
+    public Transform joystick;
 
     [Header("Sensitivity")]
     public float horizontalSensitivity = 2f;  
@@ -35,6 +36,21 @@ public class NetworkPlayerController : NetworkBehaviour
     {
         if (!IsOwner)
         {
+            cameraTransform.gameObject.SetActive(false);
+            joystick.gameObject.SetActive(false);
+        }
+    }
+    public override void OnNetworkSpawn()
+    {
+        if (IsOwner)
+        {
+            lookJoystick = joystick.GetComponent<Joystick>();
+            joystick.gameObject.SetActive(true);
+            cameraTransform.gameObject.SetActive(true);
+        }
+        else
+        {
+            joystick.gameObject.SetActive(false);
             cameraTransform.gameObject.SetActive(false);
         }
     }
