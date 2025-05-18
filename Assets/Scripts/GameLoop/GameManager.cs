@@ -6,6 +6,7 @@ using System.Linq;
 using Unity.Collections;
 using System.Threading.Tasks;
 using System;
+using TMPro;
 
 public enum GamePhase { Contextualization, Questions, Strike, GameOver }
 
@@ -113,6 +114,7 @@ public class GameManager : NetworkBehaviour
         {
             PlayerRoleResponse rol = await services.GetPlayerRole(gameID.Value.ToString(), player.id.Value.ToString());
             player.IsImpostor.Value = rol.role.is_guilty;
+            PlayerData.LocalPlayer.playerNameText.text = rol.role.name;
             if (rol.role.is_guilty) impostor = player;
             string roleInfo = player.IsImpostor.Value ? "" : rol.role.facade;
             player.AssignRoleClientRpc(roleInfo);
